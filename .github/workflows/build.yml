@@ -27,7 +27,8 @@ jobs:
         id: ver
         shell: pwsh
         run: |
-          $v = mvn help:evaluate -Dexpression=project.version -q -DforceStdout
+          [xml]$pom = Get-Content pom.xml
+          $v = $pom.project.version.Trim()
           "APP_VERSION=$v" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
 
       - name: Ensure WiX Toolset 3 is on PATH
@@ -93,7 +94,7 @@ jobs:
       - name: Resolve app version
         id: ver
         run: |
-          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          VERSION=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text)")
           echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
       # rpmbuild is needed by jpackage to produce RPM packages on Debian-based runners
@@ -153,7 +154,7 @@ jobs:
       - name: Resolve app version
         id: ver
         run: |
-          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          VERSION=$(python3 -c "import xml.etree.ElementTree as ET; print(ET.parse('pom.xml').getroot().find('{http://maven.apache.org/POM/4.0.0}version').text)")
           echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build custom JRE image (jlink)
