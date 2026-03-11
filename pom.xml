@@ -17,8 +17,6 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <javafx.version>17.0.13</javafx.version>
-        <!-- Default value; each profile overrides this property -->
-        <installer.type>exe</installer.type>
     </properties>
 
     <dependencies>
@@ -64,48 +62,9 @@
                     <noHeaderFiles>true</noHeaderFiles>
                     <compress>2</compress>
 
-                    <!-- jpackage: application/image name -->
-                    <jpackageImage>SHA256Tool</jpackageImage>
-                    <!-- jpackage: installer format, overridden by each profile -->
-                    <installerType>${installer.type}</installerType>
-                    <vendor>ENSS</vendor>
-                    <appVersion>${project.version}</appVersion>
                 </configuration>
             </plugin>
         </plugins>
     </build>
 
-    <profiles>
-        <!-- Windows self-contained EXE installer -->
-        <profile>
-            <id>windows</id>
-            <properties>
-                <installer.type>exe</installer.type>
-            </properties>
-        </profile>
-
-        <!-- Debian / Ubuntu DEB package -->
-        <profile>
-            <id>linux-deb</id>
-            <properties>
-                <installer.type>deb</installer.type>
-            </properties>
-        </profile>
-
-        <!-- RHEL / Fedora / CentOS RPM package -->
-        <profile>
-            <id>linux-rpm</id>
-            <properties>
-                <installer.type>rpm</installer.type>
-            </properties>
-        </profile>
-
-        <!-- macOS DMG disk image -->
-        <profile>
-            <id>macos</id>
-            <properties>
-                <installer.type>dmg</installer.type>
-            </properties>
-        </profile>
-    </profiles>
 </project>

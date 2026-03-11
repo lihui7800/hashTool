@@ -23,7 +23,9 @@ jobs:
           cache: maven
 
       - name: Build Windows EXE installer
-        run: mvn -B clean package javafx:jlink javafx:jpackage -Pwindows
+        run: |
+          mvn -B clean package javafx:jlink -Pwindows
+          jpackage --type exe --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
 
       # jpackage may write the installer to the project root or to target/;
       # search recursively (excluding .git) and stage for upload.
@@ -63,7 +65,9 @@ jobs:
         run: sudo apt-get update -q && sudo apt-get install -y rpm fakeroot
 
       - name: Build DEB package
-        run: mvn -B clean package javafx:jlink javafx:jpackage -Plinux-deb
+        run: |
+          mvn -B clean package javafx:jlink -Plinux-deb
+          jpackage --type deb --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
 
       # Stage DEB before the next clean wipes target/
       - name: Stage DEB installer
@@ -72,7 +76,9 @@ jobs:
           find . -name "*.deb" ! -path "./.git/*" -exec cp {} staging/ \;
 
       - name: Build RPM package
-        run: mvn -B clean package javafx:jlink javafx:jpackage -Plinux-rpm
+        run: |
+          mvn -B clean package javafx:jlink -Plinux-rpm
+          jpackage --type rpm --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
 
       - name: Stage RPM installer
         run: find . -name "*.rpm" ! -path "./.git/*" -exec cp {} staging/ \;
@@ -101,7 +107,9 @@ jobs:
           cache: maven
 
       - name: Build macOS DMG installer
-        run: mvn -B clean package javafx:jlink javafx:jpackage -Pmacos
+        run: |
+          mvn -B clean package javafx:jlink -Pmacos
+          jpackage --type dmg --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
 
       - name: Stage DMG installer
         run: |
