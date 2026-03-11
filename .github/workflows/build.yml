@@ -23,13 +23,19 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Install WiX Toolset 3
+      - name: Ensure WiX Toolset 3 is on PATH
         shell: pwsh
         run: |
-          choco install wixtoolset --version 3.14.1 -y --no-progress
-          $wixPath = "C:\Program Files (x86)\WiX Toolset v3.14\bin"
-          if (Test-Path $wixPath) {
-            echo $wixPath | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          $wixBin = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*\bin" -ErrorAction SilentlyContinue |
+                    Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty FullName
+          if ($wixBin) {
+            Write-Host "Found WiX at: $wixBin"
+            echo $wixBin | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          } else {
+            choco upgrade wixtoolset -y --no-progress
+            $wixBin = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*\bin" |
+                      Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty FullName
+            echo $wixBin | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           }
 
       - name: Build Windows EXE installer
