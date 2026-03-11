@@ -23,12 +23,32 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Install WiX Toolset 3
+        shell: pwsh
+        run: |
+          choco install wixtoolset --version 3.14.1 -y --no-progress
+          $wixPath = "C:\Program Files (x86)\WiX Toolset v3.14\bin"
+          if (Test-Path $wixPath) {
+            echo $wixPath | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          }
+
       - name: Build Windows EXE installer
         shell: pwsh
         run: |
           mvn -B clean package javafx:jlink -Pwindows
           New-Item -ItemType Directory -Force -Path staging | Out-Null
-          jpackage --type exe --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest staging --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
+          jpackage `
+            --type exe `
+            --runtime-image target/sha256tool-runtime `
+            --name SHA256Tool `
+            --app-version 1.0.0 `
+            --vendor ENSS `
+            --dest staging `
+            --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp `
+            --win-dir-chooser `
+            --win-shortcut `
+            --win-menu `
+            --win-menu-group SHA256Tool
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
