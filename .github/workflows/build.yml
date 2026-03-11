@@ -1,0 +1,116 @@
+name: Build Installers
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Windows — self-contained EXE (embeds JRE via jlink + jpackage)
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build Windows EXE installer
+        run: mvn -B clean package javafx:jlink javafx:jpackage -Pwindows
+
+      # jpackage may write the installer to the project root or to target/;
+      # search recursively (excluding .git) and stage for upload.
+      - name: Stage EXE installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path staging | Out-Null
+          Get-ChildItem -Recurse -Filter "*.exe" |
+            Where-Object { $_.FullName -notmatch '\\.git\\' } |
+            ForEach-Object { Copy-Item $_.FullName -Destination staging/ -Force }
+
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: sha256tool-windows-exe
+          path: staging/
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Linux — DEB (Debian/Ubuntu) + RPM (RHEL/Fedora), both with embedded JRE
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      # rpm-build is required by jpackage to produce RPM packages on Debian-based runners
+      - name: Install RPM build tools
+        run: sudo apt-get update -q && sudo apt-get install -y rpm fakeroot
+
+      - name: Build DEB package
+        run: mvn -B clean package javafx:jlink javafx:jpackage -Plinux-deb
+
+      # Stage DEB before the next clean wipes target/
+      - name: Stage DEB installer
+        run: |
+          mkdir -p staging
+          find . -name "*.deb" ! -path "./.git/*" -exec cp {} staging/ \;
+
+      - name: Build RPM package
+        run: mvn -B clean package javafx:jlink javafx:jpackage -Plinux-rpm
+
+      - name: Stage RPM installer
+        run: find . -name "*.rpm" ! -path "./.git/*" -exec cp {} staging/ \;
+
+      - name: Upload Linux packages (DEB + RPM)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sha256tool-linux-packages
+          path: staging/
+          if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # macOS — DMG disk image with embedded JRE
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build macOS DMG installer
+        run: mvn -B clean package javafx:jlink javafx:jpackage -Pmacos
+
+      - name: Stage DMG installer
+        run: |
+          mkdir -p staging
+          find . -name "*.dmg" ! -path "./.git/*" -exec cp {} staging/ \;
+
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: sha256tool-macos-dmg
+          path: staging/
+          if-no-files-found: error
