@@ -8,7 +8,7 @@ on:
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
-  # Windows — self-contained EXE (embeds JRE via jlink + jpackage)
+  # Windows — self-contained EXE installer (JRE bundled via jlink + jpackage)
   # ─────────────────────────────────────────────────────────────────────────────
   build-windows:
     runs-on: windows-latest
@@ -23,6 +23,13 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      - name: Resolve app version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = mvn help:evaluate -Dexpression=project.version -q -DforceStdout
+          "APP_VERSION=$v" | Out-File -Append -Encoding utf8 $env:GITHUB_OUTPUT
+
       - name: Ensure WiX Toolset 3 is on PATH
         shell: pwsh
         run: |
@@ -30,24 +37,27 @@ jobs:
                     Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty FullName
           if ($wixBin) {
             Write-Host "Found WiX at: $wixBin"
-            echo $wixBin | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+            $wixBin | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           } else {
             choco upgrade wixtoolset -y --no-progress
             $wixBin = Get-ChildItem "C:\Program Files (x86)\WiX Toolset*\bin" |
                       Sort-Object Name -Descending | Select-Object -First 1 -ExpandProperty FullName
-            echo $wixBin | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+            $wixBin | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
           }
 
-      - name: Build Windows EXE installer
+      - name: Build custom JRE image (jlink)
+        shell: pwsh
+        run: mvn -B clean package javafx:jlink
+
+      - name: Create Windows EXE installer (jpackage)
         shell: pwsh
         run: |
-          mvn -B clean package javafx:jlink -Pwindows
           New-Item -ItemType Directory -Force -Path staging | Out-Null
           jpackage `
             --type exe `
             --runtime-image target/sha256tool-runtime `
             --name SHA256Tool `
-            --app-version 1.0.0 `
+            --app-version ${{ steps.ver.outputs.APP_VERSION }} `
             --vendor ENSS `
             --dest staging `
             --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp `
@@ -65,6 +75,7 @@ jobs:
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Linux — DEB (Debian/Ubuntu) + RPM (RHEL/Fedora), both with embedded JRE
+  # Single jlink build → two jpackage calls (avoids redundant maven clean)
   # ─────────────────────────────────────────────────────────────────────────────
   build-linux:
     runs-on: ubuntu-latest
@@ -79,28 +90,42 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # rpm-build is required by jpackage to produce RPM packages on Debian-based runners
+      - name: Resolve app version
+        id: ver
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # rpmbuild is needed by jpackage to produce RPM packages on Debian-based runners
       - name: Install RPM build tools
         run: sudo apt-get update -q && sudo apt-get install -y rpm fakeroot
 
-      - name: Build DEB package
-        run: |
-          mvn -B clean package javafx:jlink -Plinux-deb
-          jpackage --type deb --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
+      - name: Build custom JRE image (jlink)
+        run: mvn -B clean package javafx:jlink
 
-      # Stage DEB before the next clean wipes target/
-      - name: Stage DEB installer
+      - name: Create DEB and RPM packages (jpackage)
         run: |
           mkdir -p staging
-          find . -name "*.deb" ! -path "./.git/*" -exec cp {} staging/ \;
 
-      - name: Build RPM package
-        run: |
-          mvn -B clean package javafx:jlink -Plinux-rpm
-          jpackage --type rpm --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
+          # Debian / Ubuntu
+          jpackage --type deb \
+            --runtime-image target/sha256tool-runtime \
+            --name sha256tool \
+            --app-version ${{ steps.ver.outputs.APP_VERSION }} \
+            --vendor ENSS \
+            --dest staging \
+            --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp \
+            --linux-shortcut
 
-      - name: Stage RPM installer
-        run: find . -name "*.rpm" ! -path "./.git/*" -exec cp {} staging/ \;
+          # RHEL / Fedora / openSUSE
+          jpackage --type rpm \
+            --runtime-image target/sha256tool-runtime \
+            --name sha256tool \
+            --app-version ${{ steps.ver.outputs.APP_VERSION }} \
+            --vendor ENSS \
+            --dest staging \
+            --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp \
+            --linux-shortcut
 
       - name: Upload Linux packages (DEB + RPM)
         uses: actions/upload-artifact@v4
@@ -125,15 +150,25 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build macOS DMG installer
+      - name: Resolve app version
+        id: ver
         run: |
-          mvn -B clean package javafx:jlink -Pmacos
-          jpackage --type dmg --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "APP_VERSION=$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Stage DMG installer
+      - name: Build custom JRE image (jlink)
+        run: mvn -B clean package javafx:jlink
+
+      - name: Create macOS DMG installer (jpackage)
         run: |
           mkdir -p staging
-          find . -name "*.dmg" ! -path "./.git/*" -exec cp {} staging/ \;
+          jpackage --type dmg \
+            --runtime-image target/sha256tool-runtime \
+            --name SHA256Tool \
+            --app-version ${{ steps.ver.outputs.APP_VERSION }} \
+            --vendor ENSS \
+            --dest staging \
+            --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
 
       - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
@@ -143,7 +178,7 @@ jobs:
           if-no-files-found: error
 
   # ─────────────────────────────────────────────────────────────────────────────
-  # Release — collect all installers and publish to GitHub Releases
+  # Release — aggregate all installers → publish to GitHub Releases
   # ─────────────────────────────────────────────────────────────────────────────
   release:
     needs: [build-windows, build-linux, build-macos]
