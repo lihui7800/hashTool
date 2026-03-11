@@ -24,19 +24,11 @@ jobs:
           cache: maven
 
       - name: Build Windows EXE installer
-        run: |
-          mvn -B clean package javafx:jlink -Pwindows
-          jpackage --type exe --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest target --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
-
-      # jpackage may write the installer to the project root or to target/;
-      # search recursively (excluding .git) and stage for upload.
-      - name: Stage EXE installer
         shell: pwsh
         run: |
+          mvn -B clean package javafx:jlink -Pwindows
           New-Item -ItemType Directory -Force -Path staging | Out-Null
-          Get-ChildItem -Recurse -Filter "*.exe" |
-            Where-Object { $_.FullName -notmatch '\\.git\\' } |
-            ForEach-Object { Copy-Item $_.FullName -Destination staging/ -Force }
+          jpackage --type exe --runtime-image target/sha256tool-runtime --name SHA256Tool --app-version 1.0.0 --vendor ENSS --dest staging --module com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp
 
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
