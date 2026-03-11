@@ -1,8 +1,9 @@
-name: Build Installers
+name: Build & Release
 
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
 
 jobs:
@@ -122,3 +123,39 @@ jobs:
           name: sha256tool-macos-dmg
           path: staging/
           if-no-files-found: error
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Release — collect all installers and publish to GitHub Releases
+  # ─────────────────────────────────────────────────────────────────────────────
+  release:
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Windows EXE
+        uses: actions/download-artifact@v4
+        with:
+          name: sha256tool-windows-exe
+          path: dist/
+
+      - name: Download Linux packages (DEB + RPM)
+        uses: actions/download-artifact@v4
+        with:
+          name: sha256tool-linux-packages
+          path: dist/
+
+      - name: Download macOS DMG
+        uses: actions/download-artifact@v4
+        with:
+          name: sha256tool-macos-dmg
+          path: dist/
+
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/*
