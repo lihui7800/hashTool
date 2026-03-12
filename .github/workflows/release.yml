@@ -6,6 +6,10 @@ on:
     tags:
       - 'v*.*.*'
 
+# 提前启用 Node.js 24 运行时，避免 2026-06-02 强制切换后出现兼容问题
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   # ─────────────────────────────────────────────
   # 多平台构建：Windows / Linux / macOS
@@ -73,7 +77,6 @@ jobs:
             '--runtime-image', 'target/sha256tool-runtime',
             '--module', 'com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp',
             '--dest', 'staging',
-            '--resource-dir', 'packaging/windows',
             '--win-shortcut',
             '--win-menu',
             '--win-dir-chooser'
