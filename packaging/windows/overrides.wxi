@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Include>
+    <!-- 安装完成界面显示"立即运行 SHA256Tool"复选框（默认勾选） -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch SHA256Tool" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+
+    <!-- 自定义操作：启动已安装的应用程序 -->
+    <CustomAction Id="LaunchApplication"
+                  Directory="INSTALLDIR"
+                  ExeCommand="&quot;[INSTALLDIR]SHA256Tool.exe&quot;"
+                  Return="asyncNoWait" />
+
+    <!-- Finish 按钮点击时，若复选框勾选则启动程序 -->
+    <UI>
+        <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"
+                 Value="LaunchApplication">
+            WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed
+        </Publish>
+    </UI>
+</Include>

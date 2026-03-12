@@ -73,6 +73,7 @@ jobs:
             '--runtime-image', 'target/sha256tool-runtime',
             '--module', 'com.enss.sha256tool/com.enss.sha256tool.Sha256ToolApp',
             '--dest', 'staging',
+            '--resource-dir', 'packaging/windows',
             '--win-shortcut',
             '--win-menu',
             '--win-dir-chooser'
